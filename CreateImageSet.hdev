@@ -1,0 +1,187 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hdevelop file_version="1.1" halcon_version="12.0.3">
+<procedure name="main">
+<interface/>
+<body>
+<c>** Description : </c>
+<c>*</c>
+<c>* This .hdev script is used to generate the "Image Set" files as the output for developing of Classifier using Machine learning methods.</c>
+<c>* These files will be generated in the same directory as the script's directory </c>
+<c>* The outputs files are .txt files which contain the information (Class, Image path) of the image set.</c>
+<c>* For training   -&gt; "ImageSet_Train.txt"</c>
+<c>* For validation -&gt; "ImageSet_Train.txt"</c>
+<c>**************************************************************************************************************************************************</c>
+<c></c>
+<c></c>
+<c></c>
+<c>** Script Procedure : "Image Set" File (.txt) Initialization </c>
+<c></c>
+<c>* Read the current directory and Create .txt for image set file.</c>
+<l>get_current_dir (ScriptDirectory)</l>
+<l>ImageSet_Train_FileName := 'ImageSet_Train.txt'</l>
+<l>ImageSet_Train_FilePath := ScriptDirectory + '/' + ImageSet_Train_FileName</l>
+<l>ImageSet_Validate_FileName := 'ImageSet_Validate.txt'</l>
+<l>ImageSet_Validate_FilePath := ScriptDirectory + '/' + ImageSet_Validate_FileName</l>
+<c></c>
+<c>* Delete the old files if they are already exist to prevent from overwriting.</c>
+<l>file_exists (ImageSet_Train_FilePath, IsFileExists)</l>
+<l>if(IsFileExists == 1)</l>
+<l>    delete_file (ImageSet_Train_FilePath)    </l>
+<l>endif</l>
+<l>file_exists (ImageSet_Validate_FilePath, IsFileExists)</l>
+<l>if(IsFileExists == 1)</l>
+<l>    delete_file (ImageSet_Validate_FilePath)</l>
+<l>endif</l>
+<c></c>
+<l>stop()</l>
+<c>*************************************************************************************************************************************************</c>
+<c></c>
+<c></c>
+<c></c>
+<c>** Script Procedure : User select the image path for both training set and validation set </c>
+<c></c>
+<c>* Description text : Training Set</c>
+<l>dev_close_window ()</l>
+<l>dev_open_window (0, 0, 600, 100, 'black', WindowHandle)</l>
+<l>set_display_font (WindowHandle, 14, 'mono', 'true', 'false')</l>
+<l>Message := 'Select path of training Set ...'</l>
+<l>disp_message (WindowHandle, Message, 'window', 12, 12, 'black', 'true')</l>
+<c></c>
+<c>* Open file dialog to input the selected path of the images</c>
+<l>dev_open_file_dialog ('read_image' , 'dir', 'default', SelectedPath_Train)</l>
+<c></c>
+<c>* Description text : Validation Set</c>
+<l>dev_close_window ()</l>
+<l>dev_open_window (0, 0, 600, 100, 'black', WindowHandle)</l>
+<l>set_display_font (WindowHandle, 14, 'mono', 'true', 'false')</l>
+<l>Message := 'Select path of validate Set ...'</l>
+<l>disp_message (WindowHandle, Message, 'window', 12, 12, 'black', 'true')</l>
+<c></c>
+<c>* Open file dialog to input the selected path of the images</c>
+<l>dev_open_file_dialog ('read_image' , 'dir', 'default', SelectedPath_Validate)</l>
+<c></c>
+<c>* Extract directory of all images in the selected folder</c>
+<l>list_files (SelectedPath_Train, 'files', ImageFiles_Train)</l>
+<l>list_files (SelectedPath_Validate, 'files', ImageFiles_Validate)</l>
+<c></c>
+<l>stop()</l>
+<c>*************************************************************************************************************************************************</c>
+<c></c>
+<c></c>
+<c></c>
+<c>** Script Procedure : Class labeling </c>
+<c></c>
+<l>dev_close_window ()</l>
+<l>dev_open_window (0, 0, 600, 100, 'black', WindowHandle)</l>
+<l>set_display_font (WindowHandle, 14, 'mono', 'true', 'false')</l>
+<l>Message := 'Class labeling for the friut classification project ...'</l>
+<l>disp_message (WindowHandle, Message, 'window', 12, 12, 'black', 'true')</l>
+<c></c>
+<c>* Class for "fruit" classification problem</c>
+<l>ClassName := \
+             ['apple', \
+              'arugula', \
+              'blueberry', \
+              'bonbon_tomato', \
+              'carrot', \
+              'champignon', \
+              'cocktail_tomatoes', \
+              'corn_salad', \
+              'cress', \
+              'mangetout', \
+              'potato', \
+              'potato_sweet', \
+              'raspberry', \
+              'strawberry']</l>
+<c></c>
+<c>* For a training set</c>
+<l>ImageName_Train  := []</l>
+<l>ImageClass_Train := []</l>
+<l>for i := 0 to |ImageFiles_Train| - 1 by 1</l>
+<c>    </c>
+<c>    * Search for the image's name</c>
+<l>    tuple_strlen (SelectedPath_Train,  PathLength_ImageFolder)</l>
+<l>    tuple_strlen (ImageFiles_Train[i], PathLength_Image)</l>
+<l>    tuple_substr (ImageFiles_Train[i], PathLength_ImageFolder + 1, PathLength_Image - 1, ImageName_Train)</l>
+<c>    </c>
+<l>    IsUnderScoreFounded := 0</l>
+<l>    tuple_strlen (ImageName_Train,     Length_ImageName)</l>
+<l>    for j := 0 to Length_ImageName - 1 by 1</l>
+<l>        tuple_substr (ImageName_Train,  j, j, tempChar)</l>
+<l>        if(tempChar == '_')</l>
+<l>            IsUnderScoreFounded := 1</l>
+<l>            tuple_substr (ImageName_Train,  0, j - 1, tmpStr)</l>
+<l>            ImageClass_Train[i] := tmpStr</l>
+<l>            break</l>
+<l>        endif</l>
+<l>    endfor</l>
+<l>endfor</l>
+<c></c>
+<c>* For a validation set</c>
+<l>ImageName_Validate  := []</l>
+<l>ImageClass_Validate := []</l>
+<l>for i := 0 to |ImageFiles_Validate| - 1 by 1</l>
+<c>    </c>
+<c>    * Search for the image's name</c>
+<l>    tuple_strlen (SelectedPath_Validate,  PathLength_ImageFolder)</l>
+<l>    tuple_strlen (ImageFiles_Validate[i], PathLength_Image)</l>
+<l>    tuple_substr (ImageFiles_Validate[i], PathLength_ImageFolder + 1, PathLength_Image - 1, ImageName_Validate)</l>
+<c>    </c>
+<l>    IsUnderScoreFounded := 0</l>
+<l>    tuple_strlen (ImageName_Validate,     Length_ImageName)</l>
+<l>    for j := 0 to Length_ImageName - 1 by 1</l>
+<l>        tuple_substr (ImageName_Validate,  j, j, tempChar)</l>
+<l>        if(tempChar == '_')</l>
+<l>            IsUnderScoreFounded := 1</l>
+<l>            tuple_substr (ImageName_Validate,  0, j - 1, tmpStr)</l>
+<l>            ImageClass_Validate[i] := tmpStr</l>
+<l>            break</l>
+<l>        endif</l>
+<l>    endfor</l>
+<l>endfor</l>
+<c></c>
+<l>stop()</l>
+<c>*************************************************************************************************************************************************</c>
+<c></c>
+<c></c>
+<c></c>
+<c>** Script Procedure : Generate the "Image Set" Files (For both training and validation) </c>
+<c></c>
+<l>dev_close_window ()</l>
+<l>dev_open_window (0, 0, 600, 100, 'black', WindowHandle)</l>
+<l>set_display_font (WindowHandle, 14, 'mono', 'true', 'false')</l>
+<l>Message := 'Generate output file ...'</l>
+<l>disp_message (WindowHandle, Message, 'window', 12, 12, 'black', 'true')</l>
+<c></c>
+<c>* Write the file for a training set</c>
+<l>open_file (ImageSet_Train_FilePath, 'output', FileHandle)</l>
+<l>fwrite_string (FileHandle, 'For training\n')</l>
+<l>fwrite_string (FileHandle, 'Number of images = ')</l>
+<l>tuple_string (|ImageFiles_Train|, 'd', numberOfImage_Train)</l>
+<l>fwrite_string (FileHandle, numberOfImage_Train + '\n')</l>
+<l>for i := 0 to |ImageFiles_Train| - 1 by 1    </l>
+<l>    fwrite_string (FileHandle, ImageClass_Train[i] + ', ')</l>
+<l>    fwrite_string (FileHandle, ImageFiles_Train[i] + '\n')</l>
+<l>endfor</l>
+<c></c>
+<c>* Write the file for a Validation set</c>
+<l>open_file (ImageSet_Validate_FilePath, 'output', FileHandle)</l>
+<l>fwrite_string (FileHandle, 'For validation\n')</l>
+<l>fwrite_string (FileHandle, 'Number of images = ')</l>
+<l>tuple_string (|ImageFiles_Validate|, 'd', numberOfImage_Validate)</l>
+<l>fwrite_string (FileHandle, numberOfImage_Validate + '\n')</l>
+<l>for i := 0 to |ImageFiles_Validate| - 1 by 1    </l>
+<l>    fwrite_string (FileHandle, ImageClass_Validate[i] + ', ')</l>
+<l>    fwrite_string (FileHandle, ImageFiles_Validate[i] + '\n')</l>
+<l>endfor</l>
+<l>Message := 'Generate output file ...' + 'Completed!'</l>
+<l>disp_message (WindowHandle, Message, 'window', 12, 12, 'black', 'true')</l>
+<c></c>
+<l>stop()</l>
+<c>*************************************************************************************************************************************************</c>
+</body>
+<docu id="main">
+<parameters/>
+</docu>
+</procedure>
+</hdevelop>
