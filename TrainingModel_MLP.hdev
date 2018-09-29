@@ -1,0 +1,393 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hdevelop file_version="1.1" halcon_version="12.0.3">
+<procedure name="main">
+<interface/>
+<body>
+<c>** Description : </c>
+<c>*</c>
+<c>* This .hdev script is used to train the classifier using Neural Network (MLP) Model</c>
+<c>* The problem of classification is to classify the type of fruit ("fruit" classification problem)</c>
+<c>* Output of this script is the resulted MLP model after training which can be used later for a validation.</c>
+<c>**************************************************************************************************************************************************</c>
+<c></c>
+<c></c>
+<c></c>
+<c>** Script procedure : Read training image's path from "ImageSet_Train.txt" which is genereated by "CreateImageSet.hdev"</c>
+<c></c>
+<c>* Description text</c>
+<l>dev_close_window ()</l>
+<l>dev_open_window (0, 0, 600, 100, 'black', WindowHandle)</l>
+<l>set_display_font (WindowHandle, 14, 'mono', 'true', 'false')</l>
+<l>Message := 'Reading training image\'s path ...'</l>
+<l>disp_message (WindowHandle, Message, 'window', 12, 12, 'black', 'true')</l>
+<c></c>
+<c>* open .txt file</c>
+<l>open_file ('ImageSet_Train.txt', 'input', FileHandle)</l>
+<c></c>
+<c>* read image path &amp; image class</c>
+<l>ImagePath := []</l>
+<l>ImageClass := []</l>
+<l>IsEOF := 0</l>
+<l>nonImageLineCnt := 0</l>
+<l>imageLineCnt    := 0</l>
+<l>while(IsEOF == 0)</l>
+<l>    fread_line (FileHandle, OutLine, IsEOF)</l>
+<l>    if(nonImageLineCnt &lt; 2)</l>
+<c>        * If lines are before the image path's line</c>
+<l>        nonImageLineCnt := nonImageLineCnt + 1</l>
+<l>    else</l>
+<c>        * Image path's line </c>
+<l>        if(IsEOF != 1)</l>
+<l>            tuple_split (OutLine, ', ', Substrings)</l>
+<l>            tuple_strlen (Substrings[1], strLength)</l>
+<l>            tuple_substr (Substrings[1], 0, strLength - 2, tmpStr)</l>
+<l>            Substrings[1] := tmpStr</l>
+<l>            ImageClass[imageLineCnt] := Substrings[0]</l>
+<l>            ImagePath[imageLineCnt]  := Substrings[1]</l>
+<l>            imageLineCnt := imageLineCnt + 1</l>
+<l>        endif</l>
+<l>    endif</l>
+<l>endwhile</l>
+<c></c>
+<l>stop ()</l>
+<c>**************************************************************************************************************************************************</c>
+<c></c>
+<c></c>
+<c></c>
+<c>** Script procedure : Create MLP &amp; Feature Extraction</c>
+<c></c>
+<c>* Read image size</c>
+<l>read_image(TrainingImage, ImagePath[0])</l>
+<l>get_image_size (TrainingImage, Width, Height)</l>
+<c></c>
+<c>* Resize the window for image displaying</c>
+<c>* Description text</c>
+<l>dev_close_window ()</l>
+<l>dev_open_window (0, 0, Width/2, Height/2, 'black', WindowHandle)</l>
+<l>set_display_font (WindowHandle, 14, 'mono', 'true', 'false')</l>
+<l>Message := 'MLP Initialization &amp; Feature extraction'</l>
+<l>disp_message (WindowHandle, Message, 'window', 12, 12, 'black', 'true')</l>
+<l>* dev_update_off()</l>
+<c></c>
+<c>* Extract feature to read the feature's dimension</c>
+<l>FeatureExtract_FruitClassify (TrainingImage, tmp_FeatureVect)</l>
+<c>* MLP's output vector setup</c>
+<l>OutputVect  := []</l>
+<l>ClassName := \
+             ['apple', \
+              'arugula', \
+              'blueberry', \
+              'bonbon_tomato', \
+              'carrot', \
+              'champignon', \
+              'cocktail_tomatoes', \
+              'corn_salad', \
+              'cress', \
+              'mangetout', \
+              'potato', \
+              'potato_sweet', \
+              'raspberry', \
+              'strawberry']</l>
+<c></c>
+<c>* MLP setup parameters</c>
+<l>numInput_MLP  := |tmp_FeatureVect|</l>
+<l>numOutput_MLP := |ClassName|</l>
+<l>* numHiddenLayer_MLP := [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]</l>
+<l>numHiddenLayer_MLP := 9</l>
+<l>outputFunction     := 'logistic'</l>
+<l>featurePreprocess  := 'normalization'</l>
+<l>randomSeed := 42</l>
+<l>Error := []</l>
+<c></c>
+<c>* Training MLP with a different value of a size of a hidden layer</c>
+<l>* for i := 0 to |numHiddenLayer_MLP| - 1 by 1</l>
+<c>    </c>
+<c>    * Create MLP model</c>
+<l>    create_class_mlp (numInput_MLP, numHiddenLayer_MLP, numOutput_MLP, outputFunction, featurePreprocess, 3, randomSeed, MLPHandle)</l>
+<c>    </c>
+<c>    * Add training feature vector and its labeled output to our MLP model</c>
+<l>    for j := 0 to |ImagePath| - 1 by 1</l>
+<c>        </c>
+<l>        read_image(TrainingImage, ImagePath[j])</l>
+<c>        </c>
+<c>        * Feature extraction </c>
+<l>        FeatureExtract_FruitClassify (TrainingImage, FeatureVect)</l>
+<c>        </c>
+<c>        * Add feature vector and its output to MLP model</c>
+<l>        LabelOutputVector (ImageClass, ClassName, j, OutputVector)</l>
+<l>        tuple_real (FeatureVect, FeatureVect)</l>
+<l>        add_sample_class_mlp (MLPHandle, FeatureVect, OutputVector) </l>
+<c>        </c>
+<l>    endfor</l>
+<c>    </c>
+<c>    * Training (For a sweep-mode)</c>
+<l>*     iterationLimit := 200</l>
+<l>*     train_class_mlp (MLPHandle, iterationLimit, 1, 0.01, tmpError, ErrorLog)</l>
+<l>*     Error[i] := tmpError</l>
+<l>* endfor</l>
+<c></c>
+<c></c>
+<l>stop ()</l>
+<c>**************************************************************************************************************************************************</c>
+<c></c>
+<c></c>
+<c></c>
+<c>** Script procedure : Training using Neural Network (MLP) model</c>
+<c></c>
+<c>* Description text</c>
+<l>dev_close_window ()</l>
+<l>dev_open_window (0, 0, 600, 100, 'black', WindowHandle)</l>
+<l>set_display_font (WindowHandle, 14, 'mono', 'true', 'false')</l>
+<l>Message := 'Training the neural network ...'</l>
+<l>disp_message (WindowHandle, Message, 'window', 12, 12, 'black', 'true')</l>
+<c></c>
+<c>* Training</c>
+<l>iterationLimit := 200</l>
+<l>train_class_mlp (MLPHandle, iterationLimit, 1, 0.01, Error, ErrorLog)</l>
+<c></c>
+<l>Message := Message + ' Completed!'</l>
+<l>disp_message (WindowHandle, Message, 'window', 12, 12, 'black', 'true')</l>
+<l>stop ()</l>
+<c>**************************************************************************************************************************************************</c>
+<c></c>
+<c></c>
+<c></c>
+<c>** Script procedure : Save the trained MLP model</c>
+<c></c>
+<l>TrainedModelFileName := 'train_model_mlp.gmc'</l>
+<l>write_class_mlp (MLPHandle, TrainedModelFileName)</l>
+<c></c>
+<l>stop ()</l>
+<c>**************************************************************************************************************************************************</c>
+<c></c>
+<c></c>
+<c></c>
+<c>** Script procedure : Save the training log file as .csv file</c>
+<c></c>
+<c>* Description text</c>
+<l>dev_close_window ()</l>
+<l>dev_open_window (0, 0, 600, 100, 'black', WindowHandle)</l>
+<l>set_display_font (WindowHandle, 14, 'mono', 'true', 'false')</l>
+<l>Message := 'Generate the training log file (.csv file) ...'</l>
+<l>disp_message (WindowHandle, Message, 'window', 12, 12, 'black', 'true')</l>
+<c></c>
+<c>* Read the current directory and Create .csv file.</c>
+<l>get_current_dir (ScriptDirectory)</l>
+<l>TrainingLog_FileName := 'Log_Training.csv'</l>
+<l>* TrainingLog_FileName := 'Log_Training_Sweep.csv'</l>
+<l>TrainingLog_FilePath := ScriptDirectory + '/' + TrainingLog_FileName</l>
+<c></c>
+<c>* Delete the old files if they are already exist to prevent from overwriting.</c>
+<l>file_exists (TrainingLog_FilePath, IsFileExists)</l>
+<l>if(IsFileExists == 1)</l>
+<l>    delete_file (TrainingLog_FilePath)    </l>
+<l>endif</l>
+<c></c>
+<c>* Write the file for a training set</c>
+<l>open_file (TrainingLog_FilePath, 'output', FileHandle)</l>
+<l>fwrite_string (FileHandle, 'Training log file (MLP)\n')</l>
+<c></c>
+<c>* Logging with only 1 hidden layer value.</c>
+<l>fwrite_string (FileHandle, 'iteration,' + 'Error\n')</l>
+<l>for i := 0 to |ErrorLog| - 1 by 1</l>
+<l>    tuple_string  (i, 'd', tmpInt)</l>
+<l>    fwrite_string (FileHandle, tmpInt + ',')</l>
+<l>    tuple_string  (ErrorLog[i], 'f', tmpStr)</l>
+<l>    fwrite_string (FileHandle, tmpStr + '\n')</l>
+<l>endfor</l>
+<c></c>
+<c>* Logging for when sweeping a hidden layer value...</c>
+<l>* fwrite_string (FileHandle, '#HiddenLayer,' + 'Error\n')</l>
+<l>* for i := 0 to |Error| - 1 by 1</l>
+<l>*     tuple_string  (numHiddenLayer_MLP[i], 'f', tmpStr)</l>
+<l>*     fwrite_string (FileHandle, tmpStr + ',')</l>
+<l>*     tuple_string  (Error[i], 'f', tmpStr)</l>
+<l>*     fwrite_string (FileHandle, tmpStr + '\n')</l>
+<l>* endfor</l>
+<c></c>
+<l>Message := Message + 'Completed!'</l>
+<l>disp_message (WindowHandle, Message, 'window', 12, 12, 'black', 'true')</l>
+<c></c>
+<l>stop ()</l>
+<c>**************************************************************************************************************************************************</c>
+<c></c>
+<c></c>
+<c></c>
+<c></c>
+</body>
+<docu id="main">
+<parameters/>
+</docu>
+</procedure>
+<procedure name="FeatureExtract_FruitClassify">
+<interface>
+<io>
+<par name="ImageIn" base_type="iconic" dimension="0"/>
+</io>
+<oc>
+<par name="FeatureOut" base_type="ctrl" dimension="0"/>
+</oc>
+</interface>
+<body>
+<c></c>
+<c>** Procedure Description : Feature extraction for fruit classification problem</c>
+<c></c>
+<c>* Features of fruit image contain :</c>
+<c>* 1. Color value of the surface of the object</c>
+<c>*    - Histogram of color </c>
+<c>* 2. Shape of object</c>
+<c>* 3. Area of object</c>
+<c></c>
+<c>***** Edge and Shape region extraction</c>
+<c>* These regions will be used to extract other features. Such as "color histogram", "moment", "circularity", "compactness" etc.</c>
+<l>rgb1_to_gray (ImageIn, ImageIn_Gray)</l>
+<l>sobel_amp (ImageIn_Gray, EdgeAmplitude, 'sum_abs', 9)</l>
+<l>threshold (EdgeAmplitude, EdgeRegion, 20, 255)</l>
+<l>close_edges_length (EdgeRegion, EdgeAmplitude, Region_ClosedEdges, 50, 100)</l>
+<l>dev_clear_window()</l>
+<l>dev_display(Region_ClosedEdges)</l>
+<c></c>
+<l>rgb1_to_gray (ImageIn, ImageIn_Gray)</l>
+<l>binary_threshold (ImageIn_Gray, Regions_Background, 'max_separability', 'light', UsedThreshold)</l>
+<l>connection (Regions_Background, Regions_Background)</l>
+<l>threshold (ImageIn_Gray, Region_NoBG, 0, UsedThreshold + 20)</l>
+<l>remove_noise_region (Region_NoBG, Region_NoBG, 'n_48')</l>
+<l>dev_clear_window()</l>
+<l>dev_display(Region_NoBG)</l>
+<c></c>
+<c>* XOR output as "region"</c>
+<c>* There's no XOR set operator. So, try to XOR by using -&gt; (A &amp; !B) || (!A &amp; B)</c>
+<l>copy_obj (Region_ClosedEdges,  A, 1, 1)</l>
+<l>copy_obj (Region_NoBG, B, 1, 1)</l>
+<l>complement (Region_ClosedEdges,  A_Complimented)</l>
+<l>complement   (Region_NoBG, B_Complimented)</l>
+<l>intersection (A, B_Complimented, tmp1)</l>
+<l>intersection (A_Complimented, B, tmp2)</l>
+<l>union2 (tmp1, tmp2, Region_Xor)</l>
+<l>dev_clear_window()</l>
+<l>dev_display(Region_Xor)</l>
+<c></c>
+<c></c>
+<c></c>
+<c></c>
+<c>***** Feature extraction </c>
+<c>* Moment of object</c>
+<l>moments_region_2nd_rel_invar (Region_Xor, PHI1, PHI2)</l>
+<c>* Circularity</c>
+<l>circularity  (Region_Xor, Circularity)</l>
+<c>* Compactness</c>
+<l>compactness  (Region_Xor, Compactness)</l>
+<c>* Anisometry, Bulkiness, StructureFactor</c>
+<l>eccentricity (Region_Xor, Anisometry, Bulkiness, StructureFactor)</l>
+<c></c>
+<c>* Color (RGB value)</c>
+<c>* 1. Color feature extraction</c>
+<l>access_channel (ImageIn, Image_R, 1)</l>
+<l>access_channel (ImageIn, Image_G, 2)</l>
+<l>access_channel (ImageIn, Image_B, 3)</l>
+<l>gray_histo (Region_NoBG, Image_R, AbsoluteHisto_R, RelativeHisto_R)</l>
+<l>gray_histo (Region_NoBG, Image_G, AbsoluteHisto_G, RelativeHisto_G)</l>
+<l>gray_histo (Region_NoBG, Image_B, AbsoluteHisto_B, RelativeHisto_B)</l>
+<c></c>
+<l>Max_histo_R := 0</l>
+<l>Max_histo_G := 0</l>
+<l>Max_histo_B := 0</l>
+<l>tuple_max (AbsoluteHisto_R, Max_R)</l>
+<l>tuple_max (AbsoluteHisto_G, Max_G)</l>
+<l>tuple_max (AbsoluteHisto_B, Max_B)</l>
+<l>for i := 0 to |AbsoluteHisto_R| - 1 by 1</l>
+<l>    if (AbsoluteHisto_R[i] == Max_R)</l>
+<l>        Max_histo_R := i</l>
+<l>    endif</l>
+<l>    if (AbsoluteHisto_G[i] == Max_G)</l>
+<l>        Max_histo_G := i</l>
+<l>    endif</l>
+<l>    if (AbsoluteHisto_B[i] == Max_B)</l>
+<l>        Max_histo_B := i</l>
+<l>    endif</l>
+<l>endfor</l>
+<c></c>
+<c></c>
+<c></c>
+<c></c>
+<c>***** Set a new feature vector</c>
+<l>FeatureOut := []</l>
+<c></c>
+<l>FeatureOut[0] := PHI1</l>
+<l>FeatureOut[1] := PHI2</l>
+<l>FeatureOut[2] := Circularity</l>
+<l>FeatureOut[3] := Compactness</l>
+<l>FeatureOut[4] := Anisometry</l>
+<l>FeatureOut[5] := Bulkiness</l>
+<l>FeatureOut[6] := StructureFactor</l>
+<l>FeatureOut[7] := Max_histo_R</l>
+<l>FeatureOut[8] := Max_histo_G</l>
+<l>FeatureOut[9] := Max_histo_B</l>
+<c></c>
+<c></c>
+<c></c>
+<c></c>
+<l>return ()</l>
+<c></c>
+<c></c>
+</body>
+<docu id="FeatureExtract_FruitClassify">
+<parameters>
+<parameter id="FeatureOut"/>
+<parameter id="ImageIn"/>
+</parameters>
+</docu>
+</procedure>
+<procedure name="LabelOutputVector">
+<interface>
+<ic>
+<par name="ImageClass" base_type="ctrl" dimension="0"/>
+<par name="ClassName" base_type="ctrl" dimension="0"/>
+<par name="i" base_type="ctrl" dimension="0"/>
+</ic>
+<oc>
+<par name="OutputVector" base_type="ctrl" dimension="0"/>
+</oc>
+</interface>
+<body>
+<l>    if(ImageClass[i] == ClassName[0])</l>
+<l>        OutputVector := [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]</l>
+<l>    elseif(ImageClass[i] == ClassName[1])</l>
+<l>        OutputVector := [0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]</l>
+<l>    elseif(ImageClass[i] == ClassName[2])</l>
+<l>        OutputVector := [0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]</l>
+<l>    elseif(ImageClass[i] == ClassName[3])</l>
+<l>        OutputVector := [0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]</l>
+<l>    elseif(ImageClass[i] == ClassName[4])</l>
+<l>        OutputVector := [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0]</l>
+<l>    elseif(ImageClass[i] == ClassName[5])</l>
+<l>        OutputVector := [0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0]</l>
+<l>    elseif(ImageClass[i] == ClassName[6])</l>
+<l>        OutputVector := [0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0]</l>
+<l>    elseif(ImageClass[i] == ClassName[7])</l>
+<l>        OutputVector := [0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0]</l>
+<l>    elseif(ImageClass[i] == ClassName[8])</l>
+<l>        OutputVector := [0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0]</l>
+<l>    elseif(ImageClass[i] == ClassName[9])</l>
+<l>        OutputVector := [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0]</l>
+<l>    elseif(ImageClass[i] == ClassName[10])</l>
+<l>        OutputVector := [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0]</l>
+<l>    elseif(ImageClass[i] == ClassName[11])</l>
+<l>        OutputVector := [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0]</l>
+<l>    elseif(ImageClass[i] == ClassName[12])</l>
+<l>        OutputVector := [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0]</l>
+<l>    elseif(ImageClass[i] == ClassName[13])</l>
+<l>        OutputVector := [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]</l>
+<l>    endif</l>
+<l>return ()</l>
+</body>
+<docu id="LabelOutputVector">
+<parameters>
+<parameter id="ClassName"/>
+<parameter id="ImageClass"/>
+<parameter id="OutputVector"/>
+<parameter id="i"/>
+</parameters>
+</docu>
+</procedure>
+</hdevelop>
